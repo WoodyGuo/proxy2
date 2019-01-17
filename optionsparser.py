@@ -32,7 +32,10 @@ def parse_options(options, version):
     parser.add_option(  "-u", "--proxy-url", dest='proxy_self_url', metavar='URL',
         help="Specifies proxy's self url. Default: "+ options['proxy_self_url'] +".", 
         type='string', default=options['proxy_self_url'])
-    
+    parser.add_option('', '--cachedir', dest='cachedir', metavar='DIR',
+                      help='Sets the destination for all cached files. Default: "' + options['cachedir']
+                      + '"', default=options['cachedir'])
+
 
     # SSL Interception
     sslgroup = OptionGroup(parser, "SSL Interception setup")

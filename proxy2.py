@@ -63,6 +63,7 @@ options = {
     'cacert': 'ca-cert/ca.crt',
     'certkey': 'ca-cert/cert.key',
     'certdir': 'certs/',
+    'cachedir': 'cache/',
     'cacn': 'proxy2 CA',
     'plugins': set(),
     'plugin_class_name': 'ProxyHandler',
