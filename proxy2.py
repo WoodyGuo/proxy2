@@ -80,7 +80,7 @@ sslintercept = None
 
 # Asynchronously serving HTTP server class.
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
-    address_family = socket.AF_INET6
+    #  address_family = socket.AF_INET6
 
     # ThreadMixIn, Should the server wait for thread termination?
     # If True, python will exist despite running server threads.
