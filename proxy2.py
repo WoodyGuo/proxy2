@@ -50,7 +50,7 @@ from HTMLParser import HTMLParser
 # Global options dictonary, that will get modified after parsing 
 # program arguments. Below state represents default values.
 options = {
-    'hostname': 'localhost',
+    'hostname': '0.0.0.0',
     'port': 8080,
     'debug': False,                  # Print's out debuging informations
     'verbose': True,
@@ -500,7 +500,7 @@ def main():
         httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
 
         sa = httpd.socket.getsockname()
-        s = sa[0] if not sa[0] else '127.0.0.1'
+        s = sa[0] if not sa[0] else '0.0.0.0'
         logger.info("Serving HTTP Proxy on: " + s + ", port: " + str(sa[1]) + "...")
 
         httpd.serve_forever()
