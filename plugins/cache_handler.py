@@ -2,6 +2,7 @@
 
 import errno
 import os
+import platform
 import sys
 from urlparse import urlparse, ParseResult, parse_qs
 
@@ -32,8 +33,8 @@ def normalize_parsed_url(parsed_url):
     return result
 
 
-def split_path(path):
-    split_path = path.split('/')
+def split_path(path, separator=os.path.sep):
+    split_path = path.split(separator)
     dirname = None
     filename = None
     if len(split_path) > 1:
@@ -43,10 +44,14 @@ def split_path(path):
             dirname = path
         else:
             filename = last_fragment
-            dirname = '/'.join(split_path[:-1])
+            dirname = os.path.sep.join(split_path[:-1])
     else:
         filename = ''
         dirname = path
+
+    if platform.system() == 'Windows':
+        dirname = dirname.replace('/', '\\')
+
     return (dirname, filename)
 
 
@@ -100,7 +105,7 @@ class ProxyHandler:
             self.logger.dbg('%s %s' % (_kTag, parsed_url))
 
             cachepath = '{}{}'.format(parsed_url.netloc, parsed_url.path)
-            dirpath, filepath_stub = split_path(cachepath)
+            dirpath, filepath_stub = split_path(cachepath, '/')
             self.logger.info('%s dir: %s' % (_kTag, dirpath))
             self.logger.dbg('%s stub: %s' % (_kTag, filepath_stub))
 
