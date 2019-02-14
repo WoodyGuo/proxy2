@@ -121,10 +121,12 @@ class ProxyHandler:
             self.logger.dbg('%s making dirs %s...' % (_kTag, dirname))
             make_dirs(dirname)
             self.logger.dbg('%s %s %s %s' % (_kTag, res.status, res.reason, res_body[:60]))
-            file_obj = open(cache_file, 'wb+')
-            file_obj.writelines(res_body)
-            file_obj.close()
+            if res.status == 200:
+                file_obj = open(cache_file, 'wb+')
+                file_obj.writelines(res_body)
+                file_obj.close()
+                self.logger.dbg('%s saved %s' % (_kTag, cache_file))
         except:
-            pass
+            self.logger.err('%s error processing the response...' % _kTag)
 
         return res_body

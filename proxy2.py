@@ -1,12 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-
 #
 # Proxy2
 #
 
-# 
+#
 # TODO:
 #   - implement dynamic plugins directory scanning method in the PluginsLoader
 #   - perform severe code refactoring as for now it's kinda ugly
@@ -16,15 +15,14 @@
 #
 # Changelog:
 #   0.1     original fork from inaz2 repository.
-#   0.2     added plugins loading functionality, 
+#   0.2     added plugins loading functionality,
 #           ssl interception as a just-in-time setup,
-#           more elastic logging facilities, 
-#           separation of program options in form of a globally accessible dictonary, 
+#           more elastic logging facilities,
+#           separation of program options in form of a globally accessible dictonary,
 #           program's help text with input parameters handling,
 #
 
 VERSION = '0.2'
-
 
 import time
 import sys, os
@@ -45,16 +43,20 @@ from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
 from HTMLParser import HTMLParser
 
+ignores = [
+    '.g.doubleclick.net', 'adservice.google.com', 'googlesyndication.com', '.googletagservices.com',
+    'cyngn.com', '.amazon-adsystem.com', 'imasdk.googleapis.com', '.qq.com', 'encrypted.google.com',
+    '.google-analytics.com', '.upltv.com', 'flurry.com'
+]
 
-
-# Global options dictonary, that will get modified after parsing 
+# Global options dictonary, that will get modified after parsing
 # program arguments. Below state represents default values.
 options = {
     'hostname': '0.0.0.0',
     'port': 8080,
-    'debug': False,                  # Print's out debuging informations
+    'debug': False,  # Print's out debuging informations
     'verbose': True,
-    'trace': False,                  # Displays packets contents
+    'trace': False,  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
@@ -138,19 +140,35 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         logger.dbg('CONNECT intercepted: "%s"' % self.path)
 
+        for ignore in ignores:
+            if ignore in self.path:
+                logger.dbg('Ignored request "%s"' % self.path)
+                self.send_error(403)
+                return
+
         with self.lock:
             certpath = "%s/%s.crt" % (self.options['certdir'].rstrip('/'), hostname)
             if not os.path.isfile(certpath):
                 logger.dbg('Generating valid SSL certificate...')
                 epoch = "%d" % (time.time() * 1000)
-                p1 = Popen(["openssl", "req", "-new", "-key", self.options['certkey'], "-subj", "/CN=%s" % hostname], stdout=PIPE)
-                p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.options['cacert'], "-CAkey", self.options['cakey'], "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
+                p1 = Popen([
+                    "openssl", "req", "-new", "-key", self.options['certkey'], "-subj",
+                    "/CN=%s" % hostname
+                ],
+                           stdout=PIPE)
+                p2 = Popen([
+                    "openssl", "x509", "-req", "-days", "3650", "-CA", self.options['cacert'],
+                    "-CAkey", self.options['cakey'], "-set_serial", epoch, "-out", certpath
+                ],
+                           stdin=p1.stdout,
+                           stderr=PIPE)
                 p2.communicate()
 
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'Connection Established'))
         self.end_headers()
 
-        self.connection = ssl.wrap_socket(self.connection, keyfile=self.options['certkey'], certfile=certpath, server_side=True)
+        self.connection = ssl.wrap_socket(
+            self.connection, keyfile=self.options['certkey'], certfile=certpath, server_side=True)
         self.rfile = self.connection.makefile("rb", self.rbufsize)
         self.wfile = self.connection.makefile("wb", self.wbufsize)
 
@@ -207,7 +225,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             else:
                 req.path = "http://%s%s" % (req.headers['Host'], req.path)
 
-
         if options['trace'] or options['debug']:
             (logger.dbg if self.options['trace'] else logger.info)('Request: "%s"' % req.path)
 
@@ -228,9 +245,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             origin = (scheme, netloc)
             if not origin in self.tls.conns:
                 if scheme == 'https':
-                    self.tls.conns[origin] = httplib.HTTPSConnection(netloc, timeout=self.options['timeout'])
+                    self.tls.conns[origin] = httplib.HTTPSConnection(
+                        netloc, timeout=self.options['timeout'])
                 else:
-                    self.tls.conns[origin] = httplib.HTTPConnection(netloc, timeout=self.options['timeout'])
+                    self.tls.conns[origin] = httplib.HTTPConnection(
+                        netloc, timeout=self.options['timeout'])
             conn = self.tls.conns[origin]
 
             logger.dbg('Final request headers: ({})'.format(dict(req_headers)))
@@ -281,7 +300,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def filter_headers(self, headers):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1
-        hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade')
+        hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te',
+                      'trailers', 'transfer-encoding', 'upgrade')
         for k in hop_by_hop:
             del headers[k]
         return headers
@@ -334,21 +354,26 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def print_info(self, req, req_body, res, res_body):
+
         def parse_qsl(s):
-            return '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(s, keep_blank_values=True))
+            return '\n'.join(
+                "%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(s, keep_blank_values=True))
 
         if not options['trace'] or not options['debug']:
             return
 
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
-        res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
+        res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason,
+                                            res.headers)
 
         logger.trace(req_header_text, color=ProxyLogger.colors_map['yellow'])
 
         u = urlparse.urlsplit(req.path)
         if u.query:
             query_text = parse_qsl(u.query)
-            logger.trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, color=ProxyLogger.colors_map['green'])
+            logger.trace(
+                "==== QUERY PARAMETERS ====\n%s\n" % query_text,
+                color=ProxyLogger.colors_map['green'])
 
         cookie = req.headers.get('Cookie', '')
         if cookie:
@@ -381,14 +406,17 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text, color=ProxyLogger.colors_map['white'])
+                logger.trace(
+                    "==== REQUEST BODY ====\n%s\n" % req_body_text,
+                    color=ProxyLogger.colors_map['white'])
 
         logger.trace(res_header_text, color=ProxyLogger.colors_map['cyan'])
 
         cookies = res.headers.getheaders('Set-Cookie')
         if cookies:
             cookies = '\n'.join(cookies)
-            logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
+            logger.trace(
+                "==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
 
         if res_body is not None:
             res_body_text = None
@@ -409,12 +437,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body, re.I)
                 if m:
                     h = HTMLParser()
-                    logger.trace("==== HTML TITLE ====\n%s\n" % h.unescape(m.group(1).decode('utf-8')), color=ProxyLogger.colors_map['cyan'])
+                    logger.trace(
+                        "==== HTML TITLE ====\n%s\n" % h.unescape(m.group(1).decode('utf-8')),
+                        color=ProxyLogger.colors_map['cyan'])
             elif content_type.startswith('text/') and len(res_body) < 1024:
                 res_body_text = res_body
 
             if res_body_text:
-                logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text, color=ProxyLogger.colors_map['green'])
+                logger.trace(
+                    "==== RESPONSE BODY ====\n%s\n" % res_body_text,
+                    color=ProxyLogger.colors_map['green'])
 
     def request_handler(self, req, req_body):
         for plugin_name in self.plugins:
@@ -425,16 +457,17 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req_body = handler(req, req_body)
             except AttributeError as e:
                 if 'object has no attribute' in str(e):
-                    logger.dbg('Plugin "{}" does not implement `request_handler\''.format(plugin_name))
+                    logger.dbg(
+                        'Plugin "{}" does not implement `request_handler\''.format(plugin_name))
                     if options['debug']:
                         raise
                 else:
-                    logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
+                    logger.err("Plugin {} has thrown an exception: '{}'".format(
+                        plugin_name, str(e)))
                     if options['debug']:
                         raise
 
         return req_body
-
 
     def response_handler(self, req, req_body, res, res_body):
         res_body_current = res_body
@@ -451,9 +484,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     logger.dbg('Plugin has altered the response.')
             except AttributeError as e:
                 if 'object has no attribute' in str(e):
-                    logger.dbg('Plugin "{}" does not implement `response_handler\''.format(plugin_name))
+                    logger.dbg(
+                        'Plugin "{}" does not implement `response_handler\''.format(plugin_name))
                 else:
-                    logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
+                    logger.err("Plugin {} has thrown an exception: '{}'".format(
+                        plugin_name, str(e)))
                     if options['debug']:
                         raise
 
@@ -461,7 +496,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             return None
 
         return res_body_current
-
 
     def save_handler(self, req, req_body, res, res_body):
         self.print_info(req, req_body, res, res_body)
@@ -486,7 +520,7 @@ def cleanup():
     if options['log'] and options['log'] not in (sys.stdout, 'none'):
         options['log'].close()
         options['log'] = None
-    
+
     if sslintercept:
         sslintercept.cleanup()
 
@@ -511,12 +545,13 @@ def main():
     except Exception as e:
         print ProxyLogger.with_color(ProxyLogger.colors_map['red'], 'Fatal error has occured.')
         print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '\t%s\nTraceback:' % e)
-        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '-'*30)
+        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '-' * 30)
         traceback.print_exc()
-        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '-'*30)
+        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '-' * 30)
 
     finally:
         cleanup()
+
 
 if __name__ == '__main__':
     main()
